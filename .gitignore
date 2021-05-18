@@ -130,3 +130,5 @@ dmypy.json
 *.csv
 catboost_info/
 data/
+geekbrains-competitive-data-analysis/
+.idea/
