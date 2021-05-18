@@ -132,3 +132,4 @@ catboost_info/
 data/
 geekbrains-competitive-data-analysis/
 .idea/
+/probe.py
