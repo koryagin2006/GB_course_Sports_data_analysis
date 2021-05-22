@@ -165,3 +165,91 @@ def make_modify_cross_validation(X: pd.DataFrame, y: pd.Series, estimator: objec
     print(f"OOF-score = {round(oof_score, 4)}")
 
     return estimators, oof_score, fold_train_scores, fold_valid_scores, oof_predictions
+
+
+def lightgbm_cross_validation(params, X, y, cv, categorical=None):
+    """
+    Кросс-валидация для модели catbooost.
+
+    :param params: Словарь гиперпараметров модели.
+    :param X: Матрица признако для обучения модели.
+    :param y: Вектор целевой переменной для обучения модели.
+    :param cv: Объект KFold / StratifiedKFold для определения стратегии кросс-валидации модели.
+    :param categorical: Список категориальных признаков. Опциональный параметр, по умолчанию, не используется.
+    :return:
+        estimators: Список с объектами обученной модели.
+        oof_preds: Вектор OOF-прогнозов.
+    """
+    if not categorical:
+        categorical = "auto"
+
+    estimators, folds_scores = [], []
+    oof_preds = np.zeros(X.shape[0])
+    print(f"{time.ctime()}, Cross-Validation, {X.shape[0]} rows, {X.shape[1]} cols")
+
+    for fold, (train_idx, valid_idx) in enumerate(cv.split(X, y)):
+        x_train, x_valid = X.loc[train_idx], X.loc[valid_idx]
+        y_train, y_valid = y[train_idx], y[valid_idx]
+
+        model = lgb.LGBMClassifier(**params)
+        model.fit(x_train, y_train,
+                  eval_set=[(x_valid, y_valid)],
+                  eval_metric="auc", verbose=50, early_stopping_rounds=5000,
+                  categorical_feature=categorical
+                  )
+        oof_preds[valid_idx] = model.predict_proba(x_valid)[:, 1]
+        score = roc_auc_score(y_valid, oof_preds[valid_idx])
+        print(f"Fold {fold + 1}, Valid score = {round(score, 5)}")
+        folds_scores.append(round(score, 5))
+        estimators.append(model)
+
+    print(f"Score by each fold: {folds_scores}")
+    print("=" * 65)
+    return estimators, oof_preds
+
+
+def xgboost_cross_validation(params, X, y, cv, categorical=None):
+    """
+    Кросс-валидация для модели catbooost.
+
+    :param params: Словарь гиперпараметров модели.
+    :param X: Матрица признако для обучения модели.
+    :param y: Вектор целевой переменной для обучения модели.
+    :param cv: Объект KFold / StratifiedKFold для определения стратегии кросс-валидации модели.
+    :param categorical: Список категориальных признаков. Опциональный параметр, по умолчанию, не используется.
+    :return:
+        estimators: Список с объектами обученной модели.
+        encoders: Список с объектами LabelEncoders.
+        oof_preds: Вектор OOF-прогнозов.
+    """
+    estimators, encoders = [], {}
+    oof_preds = np.zeros(X.shape[0])
+
+    if categorical:
+        for feature in categorical:
+            encoder = LabelEncoder()
+            X[feature] = encoder.fit_transform(X[feature].astype("str").fillna("NA"))
+            encoders[feature] = encoder
+
+    print(f"{time.ctime()}, Cross-Validation, {X.shape[0]} rows, {X.shape[1]} cols")
+
+    for fold, (train_idx, valid_idx) in enumerate(cv.split(X, y)):
+        x_train, x_valid = X.loc[train_idx], X.loc[valid_idx]
+        y_train, y_valid = y[train_idx], y[valid_idx]
+        dtrain = xgb.DMatrix(x_train, y_train)
+        dvalid = xgb.DMatrix(x_valid, y_valid)
+
+        model = xgb.train(params=params,
+                          dtrain=dtrain,
+                          maximize=True,
+                          num_boost_round=10000,
+                          early_stopping_rounds=25,
+                          evals=[(dtrain, "train"), (dvalid, "valid")],
+                          verbose_eval=10,
+                          )
+        oof_preds[valid_idx] = model.predict(dvalid)
+        score = roc_auc_score(y_valid, oof_preds[valid_idx])
+        print(f"Fold {fold + 1}, Valid score = {round(score, 5)}")
+        estimators.append(model)
+
+    return estimators, encoders, oof_preds
