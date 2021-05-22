@@ -133,3 +133,4 @@ data/
 geekbrains-competitive-data-analysis/
 .idea/
 /probe.py
+src/probe.py
