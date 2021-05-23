@@ -1,36 +1,10 @@
-import os
 import numpy as np
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-
-from sklearn import preprocessing
-from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
-from sklearn.linear_model import LogisticRegression
-import missingno as msno
-import os
-import warnings
-from copy import deepcopy
-from tqdm import tqdm
-from typing import List
-
-import shap
-import numpy as np
-import pandas as pd
-import xgboost as xgb
-import seaborn as sns
-import matplotlib.pyplot as plt
-
-from sklearn.metrics import roc_auc_score
-from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import KFold, train_test_split
-import numpy as np
-import pandas as pd
-
-from sklearn.utils.validation import check_is_fitted
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.model_selection import KFold
-
+from sklearn.utils.validation import check_is_fitted
+import shap
+import warnings
 warnings.simplefilter("ignore")
 shap.initjs()
 
@@ -77,7 +51,7 @@ def calculate_permutation_importance(estimator,
     :param y_valid: Вектор целевой переменной для оценки качества модели.
     :param maximize: Флаг максимизации метрики качества. Опциональный параметр, по умолчанию, равен `True`.
                     Если `True`, значит чем выше значение метрики качества, тем лучше. Если `False` - иначе.
-    :return:
+    :return: scores, delta
     """
     y_pred = _predict(estimator, x_valid)
     base_score = metric(y_valid, y_pred)
